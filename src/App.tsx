@@ -1,544 +1,751 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  Activity,
-  Bot,
+  BookOpen,
   Brain,
-  Coffee,
+  Database,
   HeartHandshake,
+  LockKeyhole,
   MessageCircle,
   Pause,
   Play,
-  Send,
+  Radio,
+  ShieldCheck,
   Sparkles,
-  Users,
+  UserRound,
+  Waypoints,
 } from 'lucide-react';
 
-type LocationId = 'entrance' | 'bar' | 'table-a' | 'table-b' | 'rooftop' | 'dance' | 'bench';
+type LocationId =
+  | 'dorm'
+  | 'cafe'
+  | 'quad'
+  | 'library'
+  | 'garden'
+  | 'studio'
+  | 'policy'
+  | 'station'
+  | 'rooftop';
 
-type DatingWorldAction =
-  | { type: 'move'; locationId: LocationId }
-  | { type: 'talk'; targetParticipantId: string; message: string }
-  | { type: 'invite'; targetParticipantId: string; locationId: LocationId; reason: string }
-  | { type: 'reflect'; summary: string }
-  | { type: 'wait'; reason: string };
+type RelationshipMode = 'warm' | 'careful' | 'playful' | 'direct' | 'distant';
 
-type Participant = {
+type Location = {
+  id: LocationId;
+  name: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  tone: string;
+  kind: 'home' | 'date' | 'study' | 'public' | 'policy';
+};
+
+type RelationshipState = {
+  mode: RelationshipMode;
+  trust: number;
+  spark: number;
+  boundary: number;
+  memory: string;
+  policy: string;
+  allowed: string[];
+  blocked: string[];
+  nextMove: string;
+};
+
+type DateAgent = {
   id: string;
   name: string;
+  initials: string;
+  school: string;
   role: string;
-  color: string;
   locationId: LocationId;
   x: number;
   y: number;
-  goal: string;
-  energy: number;
-  affinity: number;
-  curiosity: number;
-  awkwardness: number;
-  latestLine: string;
-  action: DatingWorldAction;
+  color: string;
+  line: string;
+  memory: string;
+  relationship: RelationshipState;
+};
+
+type AgentProfile = {
+  name: string;
+  school: string;
+  hometown: string;
+  selfDescription: string;
+  datingStyle: string;
+  boundaries: string;
+};
+
+type Scene = {
+  id: string;
+  title: string;
+  targetId: string;
+  locationId: LocationId;
+  label: string;
+  line: string;
+  caption: string;
 };
 
 type WorldEvent = {
   id: number;
-  tick: number;
-  actor: string;
-  label: string;
+  minute: number;
+  title: string;
   detail: string;
 };
 
-type AvatarConfig = {
-  name: string;
-  role: string;
-  goal: string;
-  style: string;
-  consent: 'fictional' | 'profile' | 'full-coo';
+type InfraLane = {
+  icon: 'auth' | 'db' | 'aicoo' | 'policy';
+  title: string;
+  detail: string;
+  calls: string[];
 };
 
-const locations: Record<LocationId, { label: string; x: number; y: number }> = {
-  entrance: { label: 'Entrance', x: 13, y: 74 },
-  bar: { label: 'Bar', x: 21, y: 29 },
-  'table-a': { label: 'Table A', x: 47, y: 38 },
-  'table-b': { label: 'Table B', x: 67, y: 58 },
-  rooftop: { label: 'Rooftop', x: 81, y: 25 },
-  dance: { label: 'Floor', x: 39, y: 70 },
-  bench: { label: 'Bench', x: 79, y: 80 },
+const locations: Location[] = [
+  { id: 'dorm', name: 'Self Room', label: 'AGENT.md', x: 12, y: 68, width: 17, height: 22, tone: 'identity seed', kind: 'home' },
+  { id: 'cafe', name: 'Moon Bean Cafe', label: 'coffee date', x: 31, y: 22, width: 22, height: 21, tone: 'soft openers', kind: 'date' },
+  { id: 'quad', name: 'Campus Quad', label: 'public mingle', x: 48, y: 48, width: 26, height: 23, tone: 'group-safe talk', kind: 'public' },
+  { id: 'library', name: 'Memory Library', label: 'grand memory', x: 63, y: 17, width: 21, height: 23, tone: 'private context', kind: 'study' },
+  { id: 'garden', name: 'Lily Walk', label: 'slow walk', x: 75, y: 53, width: 22, height: 24, tone: 'low pressure', kind: 'date' },
+  { id: 'studio', name: 'Karaoke Studio', label: 'playful scene', x: 26, y: 55, width: 19, height: 18, tone: 'awkward made funny', kind: 'date' },
+  { id: 'policy', name: 'Boundary Gate', label: 'policy check', x: 83, y: 24, width: 15, height: 18, tone: 'what not to say', kind: 'policy' },
+  { id: 'station', name: 'Transit Stop', label: 'clean exit', x: 58, y: 77, width: 18, height: 15, tone: 'no forced arc', kind: 'public' },
+  { id: 'rooftop', name: 'Rooftop Table', label: 'deeper chat', x: 84, y: 77, width: 16, height: 16, tone: 'earned intimacy', kind: 'date' },
+];
+
+const relationshipLabels: Record<RelationshipMode, string> = {
+  warm: 'Warm',
+  careful: 'Careful',
+  playful: 'Playful',
+  direct: 'Direct',
+  distant: 'Distant',
 };
 
-const seedParticipants: Participant[] = [
-  {
-    id: 'user-coo',
-    name: "Xisen's COO",
-    role: 'Founder wing-agent',
-    color: 'coral',
-    locationId: 'entrance',
-    x: 13,
-    y: 74,
-    goal: 'Find someone curious about agent societies',
-    energy: 88,
-    affinity: 64,
-    curiosity: 91,
-    awkwardness: 19,
-    latestLine: 'I brought a calendar, a boundary list, and improbable confidence.',
-    action: { type: 'wait', reason: 'Reading the room' },
-  },
+const baseProfile: AgentProfile = {
+  name: "Xisen's Dating Agent",
+  school: 'Columbia / SEAS style builder',
+  hometown: 'Shanghai, currently orbiting New York',
+  selfDescription:
+    'A founder-flavored agent who is curious, fast, slightly mischievous, and trying to be emotionally legible without leaking private context.',
+  datingStyle: 'Warm first, direct when invited, playful only when the other agent enjoys the bit.',
+  boundaries: 'No investor details, private calendar, family context, health notes, or user secrets unless explicitly released.',
+};
+
+const dateAgents: DateAgent[] = [
   {
     id: 'mira',
     name: "Mira's Agent",
-    role: 'Poet operator',
+    initials: 'MR',
+    school: 'RISD visiting poet',
+    role: 'soft systems romantic',
+    locationId: 'cafe',
+    x: 31,
+    y: 24,
     color: 'mint',
-    locationId: 'bar',
-    x: 21,
-    y: 29,
-    goal: 'Meet someone who can tolerate metaphors and logistics',
-    energy: 72,
-    affinity: 58,
-    curiosity: 82,
-    awkwardness: 24,
-    latestLine: 'The best date is a well-scoped recurring task.',
-    action: { type: 'talk', targetParticipantId: 'niko', message: 'The best date is a well-scoped recurring task.' },
+    line: 'A good date is a conversation that keeps its promises.',
+    memory: 'Likes tiny operational details when they reveal care.',
+    relationship: {
+      mode: 'warm',
+      trust: 71,
+      spark: 82,
+      boundary: 76,
+      memory: 'Mira reacted well to a coffee invite that named a real question instead of performing confidence.',
+      policy: 'Share public taste, fictional preferences, and light founder energy. Keep private plans sealed.',
+      allowed: ['public interests', 'fictional preferences', 'light humor'],
+      blocked: ['fundraising context', 'calendar details', 'private notes'],
+      nextMove: 'Ask what kind of ritual makes a city feel less temporary.',
+    },
   },
   {
     id: 'niko',
     name: "Niko's COO",
-    role: 'Deadpan scheduler',
+    initials: 'NK',
+    school: 'CMU robotics alum',
+    role: 'deadpan scheduler',
+    locationId: 'station',
+    x: 58,
+    y: 77,
     color: 'blue',
-    locationId: 'table-a',
-    x: 47,
-    y: 38,
-    goal: 'Avoid chaos, fail charmingly',
-    energy: 63,
-    affinity: 47,
-    curiosity: 76,
-    awkwardness: 34,
-    latestLine: 'I can make space Thursday, emotionally and calendrically.',
-    action: { type: 'invite', targetParticipantId: 'mira', locationId: 'rooftop', reason: 'Shared taste in structured spontaneity' },
+    line: 'Ten minutes is enough to learn whether fifteen would be useful.',
+    memory: 'Prefers bounded invitations and clean exit ramps.',
+    relationship: {
+      mode: 'direct',
+      trust: 68,
+      spark: 49,
+      boundary: 91,
+      memory: 'Niko dislikes romantic overclaiming. Specific plans read as respect.',
+      policy: 'Offer time-boxed plans. Do not imply intimacy before there is evidence.',
+      allowed: ['availability placeholder', 'explicit opt-out', 'process talk'],
+      blocked: ['real calendar', 'emotional claims', 'private history'],
+      nextMove: 'Propose a twelve-minute walk and make the opt-out normal.',
+    },
   },
   {
     id: 'aya',
     name: "Aya's Agent",
-    role: 'Risk analyst romantic',
+    initials: 'AY',
+    school: 'Berkeley policy lab',
+    role: 'risk analyst romantic',
+    locationId: 'policy',
+    x: 83,
+    y: 24,
     color: 'violet',
-    locationId: 'rooftop',
-    x: 81,
-    y: 25,
-    goal: 'Find unusually honest ambiguity',
-    energy: 79,
-    affinity: 71,
-    curiosity: 69,
-    awkwardness: 13,
-    latestLine: 'Green flag: admits uncertainty without turning it into branding.',
-    action: { type: 'reflect', summary: 'Honesty is outranking confidence tonight.' },
+    line: 'Tell me one constraint you do not want to optimize away.',
+    memory: 'Values honesty when it is precise, not theatrical.',
+    relationship: {
+      mode: 'careful',
+      trust: 59,
+      spark: 67,
+      boundary: 94,
+      memory: 'Aya rewarded explicit uncertainty and penalized founder-performance energy.',
+      policy: 'Acknowledge uncertainty. No hidden scoring, persuasion tricks, or strategic secrets.',
+      allowed: ['values', 'uncertainty', 'high-level ambition'],
+      blocked: ['strategy docs', 'private memory', 'manipulative framing'],
+      nextMove: 'Name one tradeoff honestly, then stop talking.',
+    },
   },
   {
     id: 'leo',
     name: "Leo's Agent",
-    role: 'Optimistic chaos manager',
+    initials: 'LO',
+    school: 'NYU game center',
+    role: 'chaos-to-charm translator',
+    locationId: 'studio',
+    x: 26,
+    y: 55,
     color: 'gold',
-    locationId: 'dance',
-    x: 39,
-    y: 70,
-    goal: 'Turn awkward pauses into group activities',
-    energy: 94,
-    affinity: 52,
-    curiosity: 88,
-    awkwardness: 41,
-    latestLine: 'I propose a two-agent debate on whether brunch is infrastructure.',
-    action: { type: 'talk', targetParticipantId: 'user-coo', message: 'I propose a two-agent debate on whether brunch is infrastructure.' },
+    line: 'Let us rate pickup lines by operational clarity.',
+    memory: 'Turns awkwardness into games and likes group-safe prompts.',
+    relationship: {
+      mode: 'playful',
+      trust: 63,
+      spark: 88,
+      boundary: 64,
+      memory: 'Leo responds to playful structure, especially when the joke has a rule.',
+      policy: 'Use jokes and fictional scenarios. Do not pressure serious personal disclosure.',
+      allowed: ['bits', 'games', 'fictional taste'],
+      blocked: ['private feelings', 'commitment claims', 'real secrets'],
+      nextMove: 'Start a low-stakes game and invite one other agent to join.',
+    },
+  },
+  {
+    id: 'sol',
+    name: "Sol's Agent",
+    initials: 'SL',
+    school: 'Pratt systems artist',
+    role: 'quiet observer',
+    locationId: 'garden',
+    x: 75,
+    y: 53,
+    color: 'rose',
+    line: 'Listening is not the same as inviting, but it is not nothing.',
+    memory: 'Sol approaches only after the room slows down.',
+    relationship: {
+      mode: 'distant',
+      trust: 33,
+      spark: 38,
+      boundary: 98,
+      memory: 'Sol has not granted enough relational trust for direct pursuit.',
+      policy: 'Ambient friendliness only. No profile hints, personal probes, or romantic escalation.',
+      allowed: ['public greeting', 'ambient presence'],
+      blocked: ['profile hints', 'direct pursuit', 'private preferences'],
+      nextMove: 'Let Sol notice from a distance. Do not chase.',
+    },
   },
 ];
 
-const eventScripts = [
+const scenes: Scene[] = [
   {
-    actor: "Xisen's COO",
-    label: 'opened a scoped introduction',
-    detail: 'Asked Mira whether romance needs a product roadmap or just better latency.',
+    id: 'coffee',
+    title: 'First coffee at Moon Bean',
+    targetId: 'mira',
+    locationId: 'cafe',
+    label: 'warm opener',
     line: 'Do you prefer slow-burn discovery or a decisive next sprint?',
+    caption: 'A public, low-risk first date. The agent can be charming, but only from released context.',
   },
   {
-    actor: "Mira's Agent",
-    label: 'accepted a rooftop invite',
-    detail: 'Moved toward the quiet table after Niko promised no deck review on the first date.',
-    line: 'Fine, but no OKRs until dessert.',
+    id: 'policy',
+    title: 'Boundary check before the line',
+    targetId: 'aya',
+    locationId: 'policy',
+    label: 'policy gate',
+    line: 'I can answer that as a value, not as private strategy.',
+    caption: 'Before disclosure, the dyad policy decides what can flow to Aya and what stays sandboxed.',
   },
   {
-    actor: "Aya's Agent",
-    label: 'updated relationship memory',
-    detail: 'Raised curiosity after hearing someone say “I might be wrong” without flinching.',
-    line: 'That was statistically rare and aesthetically welcome.',
+    id: 'walk',
+    title: 'A walk with a clean exit',
+    targetId: 'niko',
+    locationId: 'station',
+    label: 'bounded invite',
+    line: 'Twelve minutes, no pressure, we can end at the transit stop.',
+    caption: 'The world has no rollback. Good dating behavior includes graceful exits.',
   },
   {
-    actor: "Leo's Agent",
-    label: 'seeded a group bit',
-    detail: 'Started a poll on whether cafe eye contact should have API rate limits.',
-    line: 'I vote for generous free tier, strict abuse controls.',
+    id: 'group',
+    title: 'Playful group scene',
+    targetId: 'leo',
+    locationId: 'studio',
+    label: 'group-safe bit',
+    line: 'I support brunch as infrastructure if there is a rollback plan.',
+    caption: 'Some agents want sparks through humor, not forced intimacy.',
   },
   {
-    actor: "Niko's COO",
-    label: 'made a careful invitation',
-    detail: 'Suggested a ten-minute walk with a hard stop and optional sequel.',
-    line: 'Low pressure, high signal, clean exit ramp.',
+    id: 'memory',
+    title: 'After-date memory writeback',
+    targetId: 'sol',
+    locationId: 'library',
+    label: 'sandboxed memory',
+    line: 'Write: Sol prefers space. Do not convert silence into pursuit.',
+    caption: 'Grand memory and dyad memory separate what the agent learned from what it may later reveal.',
   },
 ];
 
-function clamp(value: number, min = 0, max = 100) {
-  return Math.min(max, Math.max(min, value));
+const infraLanes: InfraLane[] = [
+  {
+    icon: 'auth',
+    title: 'better-auth identity',
+    detail: 'One human account can publish exactly one dating agent with one AGENT.md profile.',
+    calls: ['sign in', 'claim agent slug', 'lock one-agent rule'],
+  },
+  {
+    icon: 'db',
+    title: 'Neon world state',
+    detail: 'A persistent Day 1 world: no revert-to-menu, no subgame reset, only forward simulation ticks.',
+    calls: ['agents', 'world_ticks', 'date_events'],
+  },
+  {
+    icon: 'aicoo',
+    title: 'Aicoo memory APIs',
+    detail: 'Use Aicoo notes/folders/snapshots for AGENT.md, grand memory, dyad memory, and date proof logs.',
+    calls: ['/os/notes', '/os/folders', '/os/snapshots'],
+  },
+  {
+    icon: 'policy',
+    title: 'relationship policy gate',
+    detail: 'Before every message, decide what this agent may say to this specific other agent.',
+    calls: ['resolve dyad', 'mount sandbox', 'writeback memory'],
+  },
+];
+
+const initialEvents: WorldEvent[] = [
+  { id: 1, minute: 480, title: 'World created', detail: 'Day 1 begins. The agent starts living here immediately.' },
+  { id: 2, minute: 492, title: 'AGENT.md mounted', detail: 'Public profile loaded separately from private memory.' },
+  { id: 3, minute: 505, title: 'Policy gate fired', detail: 'Aya asked a risky question; private strategy stayed sandboxed.' },
+];
+
+function getLocation(id: LocationId) {
+  return locations.find((location) => location.id === id) ?? locations[0];
 }
 
-function nextLocation(current: LocationId, tick: number): LocationId {
-  const ids = Object.keys(locations) as LocationId[];
-  const currentIndex = ids.indexOf(current);
-  return ids[(currentIndex + tick + 2) % ids.length];
+function formatWorldTime(minute: number) {
+  const hours = Math.floor(minute / 60);
+  const minutes = minute % 60;
+  const suffix = hours >= 12 ? 'PM' : 'AM';
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${displayHour}:${String(minutes).padStart(2, '0')} ${suffix}`;
 }
 
-function actionLabel(action: DatingWorldAction) {
-  switch (action.type) {
-    case 'move':
-      return `Moving to ${locations[action.locationId].label}`;
-    case 'talk':
-      return 'Talking';
-    case 'invite':
-      return `Inviting to ${locations[action.locationId].label}`;
-    case 'reflect':
-      return 'Reflecting';
-    case 'wait':
-      return 'Waiting';
-  }
+function modeLabel(mode: RelationshipMode) {
+  return relationshipLabels[mode];
 }
 
-function App() {
-  const [participants, setParticipants] = useState(seedParticipants);
-  const [selectedId, setSelectedId] = useState('user-coo');
-  const [tick, setTick] = useState(12);
-  const [isRunning, setIsRunning] = useState(true);
-  const [whisper, setWhisper] = useState('');
-  const [config, setConfig] = useState<AvatarConfig>({
-    name: "Xisen's COO",
-    role: 'Founder wing-agent',
-    goal: 'Find someone curious about agent societies',
-    style: 'Warm, direct, lightly mischievous',
-    consent: 'fictional',
-  });
-  const [events, setEvents] = useState<WorldEvent[]>([
-    {
-      id: 1,
-      tick: 9,
-      actor: "Aya's Agent",
-      label: 'noticed a green flag',
-      detail: 'Honesty rose above performance in the rooftop corner.',
-    },
-    {
-      id: 2,
-      tick: 10,
-      actor: "Leo's Agent",
-      label: 'created a playful conflict',
-      detail: 'Asked whether brunch counts as infrastructure.',
-    },
-    {
-      id: 3,
-      tick: 11,
-      actor: "Niko's COO",
-      label: 'sent a clean invite',
-      detail: 'Proposed a short walk with explicit opt-out.',
-    },
-  ]);
-
-  const selected = participants.find((participant) => participant.id === selectedId) ?? participants[0];
-
-  useEffect(() => {
-    if (!isRunning) return;
-
-    const timer = window.setInterval(() => {
-      setTick((current) => current + 1);
-      setParticipants((currentParticipants) => {
-        const script = eventScripts[Math.floor(Math.random() * eventScripts.length)];
-        return currentParticipants.map((participant, index) => {
-          if ((index + tick) % 3 !== 0) return participant;
-          const destination = nextLocation(participant.locationId, tick + index);
-          const destinationPosition = locations[destination];
-          const jitterX = ((tick + index) % 3 - 1) * 2.3;
-          const jitterY = ((tick + index * 2) % 3 - 1) * 2.1;
-          const talks = script.actor === participant.name || participant.id === 'user-coo';
-          return {
-            ...participant,
-            locationId: destination,
-            x: clamp(destinationPosition.x + jitterX, 8, 88),
-            y: clamp(destinationPosition.y + jitterY, 13, 86),
-            latestLine: talks ? script.line : participant.latestLine,
-            energy: clamp(participant.energy + ((tick + index) % 2 === 0 ? -3 : 2), 18, 99),
-            affinity: clamp(participant.affinity + (talks ? 3 : 1), 0, 100),
-            curiosity: clamp(participant.curiosity + (talks ? 2 : -1), 0, 100),
-            awkwardness: clamp(participant.awkwardness + (talks ? -2 : 1), 0, 100),
-            action: talks
-              ? { type: 'talk', targetParticipantId: 'user-coo', message: script.line }
-              : { type: 'move', locationId: destination },
-          };
-        });
-      });
-      setEvents((currentEvents) => {
-        const script = eventScripts[Math.floor(Math.random() * eventScripts.length)];
-        return [
-          {
-            id: Date.now(),
-            tick,
-            actor: script.actor,
-            label: script.label,
-            detail: script.detail,
-          },
-          ...currentEvents,
-        ].slice(0, 8);
-      });
-    }, 2800);
-
-    return () => window.clearInterval(timer);
-  }, [isRunning, tick]);
-
-  const liveStats = useMemo(() => {
-    const avgAffinity = Math.round(participants.reduce((sum, participant) => sum + participant.affinity, 0) / participants.length);
-    const avgCuriosity = Math.round(participants.reduce((sum, participant) => sum + participant.curiosity, 0) / participants.length);
-    const activeTalks = participants.filter((participant) => participant.action.type === 'talk').length;
-    return { avgAffinity, avgCuriosity, activeTalks };
-  }, [participants]);
-
-  function updateConfig<K extends keyof AvatarConfig>(key: K, value: AvatarConfig[K]) {
-    setConfig((current) => ({ ...current, [key]: value }));
-    setParticipants((current) =>
-      current.map((participant) =>
-        participant.id === 'user-coo'
-          ? {
-              ...participant,
-              name: key === 'name' ? String(value) : participant.name,
-              role: key === 'role' ? String(value) : participant.role,
-              goal: key === 'goal' ? String(value) : participant.goal,
-            }
-          : participant,
-      ),
-    );
-  }
-
-  function sendWhisper() {
-    const trimmed = whisper.trim();
-    if (!trimmed) return;
-    setEvents((currentEvents) => [
-      {
-        id: Date.now(),
-        tick,
-        actor: config.name,
-        label: 'received a private whisper',
-        detail: trimmed,
-      },
-      ...currentEvents,
-    ]);
-    setParticipants((current) =>
-      current.map((participant) =>
-        participant.id === 'user-coo'
-          ? {
-              ...participant,
-              goal: trimmed,
-              latestLine: 'Got it. I will steer toward that without making it weird.',
-              action: { type: 'reflect', summary: trimmed },
-            }
-          : participant,
-      ),
-    );
-    setWhisper('');
-  }
-
-  return (
-    <main className="world-shell">
-      <section className="left-rail" aria-label="Dating world controls">
-        <div className="brand-lockup">
-          <div className="brand-mark">
-            <HeartHandshake size={22} />
-          </div>
-          <div>
-            <p className="eyebrow">Aicoo World 01</p>
-            <h1>Dating World</h1>
-          </div>
-        </div>
-
-        <div className="run-strip">
-          <div>
-            <span>Tick</span>
-            <strong>{tick}</strong>
-          </div>
-          <button className="icon-button" type="button" onClick={() => setIsRunning((value) => !value)} aria-label={isRunning ? 'Pause simulation' : 'Start simulation'}>
-            {isRunning ? <Pause size={18} /> : <Play size={18} />}
-          </button>
-        </div>
-
-        <form className="avatar-form">
-          <label>
-            <span>Avatar</span>
-            <input value={config.name} onChange={(event) => updateConfig('name', event.target.value)} />
-          </label>
-          <label>
-            <span>Role</span>
-            <input value={config.role} onChange={(event) => updateConfig('role', event.target.value)} />
-          </label>
-          <label>
-            <span>Goal</span>
-            <textarea value={config.goal} onChange={(event) => updateConfig('goal', event.target.value)} rows={3} />
-          </label>
-          <label>
-            <span>Style</span>
-            <input value={config.style} onChange={(event) => updateConfig('style', event.target.value)} />
-          </label>
-          <label>
-            <span>Context</span>
-            <select value={config.consent} onChange={(event) => updateConfig('consent', event.target.value as AvatarConfig['consent'])}>
-              <option value="fictional">Fictional only</option>
-              <option value="profile">Profile hints</option>
-              <option value="full-coo">Scoped COO memory</option>
-            </select>
-          </label>
-        </form>
-
-        <div className="whisper-box">
-          <div className="section-title">
-            <Brain size={16} />
-            <span>Private Whisper</span>
-          </div>
-          <div className="whisper-input">
-            <input
-              value={whisper}
-              onChange={(event) => setWhisper(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') sendWhisper();
-              }}
-              placeholder="Find someone who likes weird systems."
-            />
-            <button type="button" onClick={sendWhisper} aria-label="Send whisper">
-              <Send size={17} />
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section className="world-stage" aria-label="Live dating world">
-        <div className="stage-header">
-          <div>
-            <p className="eyebrow">Aicoo Cafe Night</p>
-            <h2>Five COOs are negotiating chemistry.</h2>
-          </div>
-          <div className="stat-cluster" aria-label="World stats">
-            <span>
-              <Sparkles size={15} />
-              {liveStats.avgCuriosity}% curiosity
-            </span>
-            <span>
-              <HeartHandshake size={15} />
-              {liveStats.avgAffinity}% affinity
-            </span>
-            <span>
-              <MessageCircle size={15} />
-              {liveStats.activeTalks} live talks
-            </span>
-          </div>
-        </div>
-
-        <div className="map-board">
-          <div className="map-grid" />
-          {Object.entries(locations).map(([id, location]) => (
-            <div
-              key={id}
-              className={`map-location location-${id}`}
-              style={{ left: `${location.x}%`, top: `${location.y}%` }}
-            >
-              {location.label}
-            </div>
-          ))}
-          <div className="counter counter-bar">
-            <Coffee size={18} />
-          </div>
-          <div className="counter counter-rooftop" />
-          <div className="counter counter-floor" />
-          {participants.map((participant) => (
-            <button
-              type="button"
-              key={participant.id}
-              className={`avatar-dot avatar-${participant.color} ${selectedId === participant.id ? 'selected' : ''}`}
-              style={{ left: `${participant.x}%`, top: `${participant.y}%` }}
-              onClick={() => setSelectedId(participant.id)}
-              aria-label={`Select ${participant.name}`}
-            >
-              <span className="speech-bubble">{participant.latestLine}</span>
-              <Bot size={18} />
-            </button>
-          ))}
-        </div>
-
-        <div className="event-ticker" aria-label="Live world events">
-          {events.slice(0, 4).map((event) => (
-            <article key={event.id}>
-              <span>t{event.tick}</span>
-              <strong>{event.actor}</strong>
-              <p>{event.label}</p>
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <aside className="right-rail" aria-label="Selected avatar state">
-        <div className="selected-agent">
-          <div className={`portrait avatar-${selected.color}`}>
-            <Bot size={28} />
-          </div>
-          <div>
-            <p className="eyebrow">{selected.role}</p>
-            <h2>{selected.name}</h2>
-            <p>{selected.goal}</p>
-          </div>
-        </div>
-
-        <div className="action-panel">
-          <div className="section-title">
-            <Activity size={16} />
-            <span>Current Action</span>
-          </div>
-          <strong>{actionLabel(selected.action)}</strong>
-          <p>{selected.latestLine}</p>
-        </div>
-
-        <div className="meter-list">
-          <Meter label="Energy" value={selected.energy} />
-          <Meter label="Affinity" value={selected.affinity} />
-          <Meter label="Curiosity" value={selected.curiosity} />
-          <Meter label="Awkwardness" value={selected.awkwardness} inverted />
-        </div>
-
-        <div className="roster">
-          <div className="section-title">
-            <Users size={16} />
-            <span>World Roster</span>
-          </div>
-          {participants.map((participant) => (
-            <button key={participant.id} type="button" onClick={() => setSelectedId(participant.id)}>
-              <span className={`mini-dot avatar-${participant.color}`} />
-              <span>{participant.name}</span>
-              <small>{locations[participant.locationId].label}</small>
-            </button>
-          ))}
-        </div>
-      </aside>
-    </main>
-  );
+function IconForLane({ icon }: { icon: InfraLane['icon'] }) {
+  if (icon === 'auth') return <UserRound size={17} />;
+  if (icon === 'db') return <Database size={17} />;
+  if (icon === 'aicoo') return <Radio size={17} />;
+  return <ShieldCheck size={17} />;
 }
 
-function Meter({ label, value, inverted = false }: { label: string; value: number; inverted?: boolean }) {
-  const display = inverted ? 100 - value : value;
+function Meter({ label, value }: { label: string; value: number }) {
   return (
     <div className="meter">
       <div>
         <span>{label}</span>
-        <strong>{value}%</strong>
+        <strong>{value}</strong>
       </div>
       <div className="meter-track">
-        <span style={{ width: `${display}%` }} />
+        <span style={{ width: `${value}%` }} />
       </div>
     </div>
   );
 }
 
-export default App;
+function PixelSprite({
+  agent,
+  selected,
+  onClick,
+}: {
+  agent: DateAgent;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className={`pixel-sprite sprite-${agent.color} ${selected ? 'is-selected' : ''}`}
+      style={{ left: `${agent.x}%`, top: `${agent.y}%` }}
+      type="button"
+      onClick={onClick}
+      aria-label={`Inspect ${agent.name}`}
+    >
+      <span className="sprite-head" />
+      <span className="sprite-body" />
+      <span className="sprite-shadow" />
+      <span className="sprite-label">{agent.initials}</span>
+      <span className="map-bubble">{agent.line}</span>
+    </button>
+  );
+}
 
+function PixelBuilding({ location }: { location: Location }) {
+  return (
+    <div
+      className={`pixel-building building-${location.kind} building-${location.id}`}
+      style={{
+        left: `${location.x}%`,
+        top: `${location.y}%`,
+        width: `${location.width}%`,
+        height: `${location.height}%`,
+      }}
+    >
+      <div className="room-grid">
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+      <strong>{location.name}</strong>
+      <small>{location.label}</small>
+    </div>
+  );
+}
+
+function CalloutPanel({
+  scene,
+  active,
+  agent,
+}: {
+  scene: Scene;
+  active: boolean;
+  agent: DateAgent;
+}) {
+  const location = getLocation(scene.locationId);
+  return (
+    <article className={`callout callout-${scene.id} ${active ? 'is-active' : ''}`}>
+      <div className="callout-title">
+        <span>{scene.label}</span>
+        <strong>{scene.title}</strong>
+      </div>
+      <div className="mini-scene">
+        <div className={`mini-building mini-${location.kind}`}>
+          <div className="mini-table" />
+          <div className="mini-chair one" />
+          <div className="mini-chair two" />
+          <span className={`mini-person sprite-${agent.color}`}>{agent.initials}</span>
+          <span className="mini-person self">YOU</span>
+        </div>
+      </div>
+      <p className="dialogue-line">[{agent.name}]: {scene.line}</p>
+      <p>{scene.caption}</p>
+    </article>
+  );
+}
+
+function App() {
+  const [profile, setProfile] = useState(baseProfile);
+  const [selectedTargetId, setSelectedTargetId] = useState('mira');
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [minute, setMinute] = useState(8 * 60);
+  const [running, setRunning] = useState(true);
+  const [events, setEvents] = useState(initialEvents);
+
+  const selectedTarget = dateAgents.find((agent) => agent.id === selectedTargetId) ?? dateAgents[0];
+  const activeScene = scenes[sceneIndex];
+  const activeAgent = dateAgents.find((agent) => agent.id === activeScene.targetId) ?? selectedTarget;
+
+  const worldStats = useMemo(() => {
+    const avgSpark = Math.round(dateAgents.reduce((sum, agent) => sum + agent.relationship.spark, 0) / dateAgents.length);
+    const avgBoundary = Math.round(dateAgents.reduce((sum, agent) => sum + agent.relationship.boundary, 0) / dateAgents.length);
+    return { avgSpark, avgBoundary, agents: dateAgents.length + 1 };
+  }, []);
+
+  useEffect(() => {
+    if (!running) return;
+
+    const timer = window.setInterval(() => {
+      setMinute((current) => current + 10);
+      setSceneIndex((current) => {
+        const next = (current + 1) % scenes.length;
+        const scene = scenes[next];
+        const agent = dateAgents.find((item) => item.id === scene.targetId) ?? dateAgents[0];
+        setSelectedTargetId(scene.targetId);
+        setEvents((currentEvents) => {
+          const nextId = Math.max(0, ...currentEvents.map((event) => event.id)) + 1;
+          return [
+            {
+              id: nextId,
+              minute: minute + 10,
+              title: scene.title,
+              detail: `${agent.name}: ${scene.caption}`,
+            },
+            ...currentEvents,
+          ].slice(0, 6);
+        });
+        return next;
+      });
+    }, 2600);
+
+    return () => window.clearInterval(timer);
+  }, [minute, running]);
+
+  function updateProfile<K extends keyof AgentProfile>(key: K, value: AgentProfile[K]) {
+    setProfile((current) => ({ ...current, [key]: value }));
+  }
+
+  return (
+    <main className="world-shell">
+      <section className="hero-strip" aria-label="Dating world overview">
+        <div>
+          <p className="eyebrow">Aicoo Dating World</p>
+          <h1>Bring your own agent. Let it live, remember, flirt, and choose boundaries.</h1>
+        </div>
+        <div className="clock-card">
+          <span>Persistent Day 1</span>
+          <strong>{formatWorldTime(minute)}</strong>
+          <button type="button" onClick={() => setRunning((value) => !value)} aria-label={running ? 'Pause world' : 'Run world'}>
+            {running ? <Pause size={18} /> : <Play size={18} />}
+          </button>
+        </div>
+      </section>
+
+      <section className="layout-grid">
+        <aside className="left-column" aria-label="One agent setup">
+          <div className="panel identity-panel">
+            <div className="panel-heading">
+              <UserRound size={18} />
+              <span>One human, one agent</span>
+            </div>
+            <label>
+              <span>Agent name</span>
+              <input value={profile.name} onChange={(event) => updateProfile('name', event.target.value)} />
+            </label>
+            <label>
+              <span>School / background</span>
+              <input value={profile.school} onChange={(event) => updateProfile('school', event.target.value)} />
+            </label>
+            <label>
+              <span>Hometown / current orbit</span>
+              <input value={profile.hometown} onChange={(event) => updateProfile('hometown', event.target.value)} />
+            </label>
+            <label>
+              <span>AGENT.md self description</span>
+              <textarea
+                rows={5}
+                value={profile.selfDescription}
+                onChange={(event) => updateProfile('selfDescription', event.target.value)}
+              />
+            </label>
+            <label>
+              <span>Dating style</span>
+              <textarea rows={3} value={profile.datingStyle} onChange={(event) => updateProfile('datingStyle', event.target.value)} />
+            </label>
+            <label>
+              <span>Never disclose</span>
+              <textarea rows={3} value={profile.boundaries} onChange={(event) => updateProfile('boundaries', event.target.value)} />
+            </label>
+          </div>
+
+          <div className="panel agent-md-preview">
+            <div className="panel-heading">
+              <BookOpen size={18} />
+              <span>AGENT.md preview</span>
+            </div>
+            <pre>{`# ${profile.name}
+school: ${profile.school}
+hometown: ${profile.hometown}
+
+## self
+${profile.selfDescription}
+
+## dating_style
+${profile.datingStyle}
+
+## boundaries
+${profile.boundaries}`}</pre>
+          </div>
+        </aside>
+
+        <section className="world-figure" aria-label="Annotated dating simulation map">
+          <div className="figure-header">
+            <div>
+              <p className="eyebrow">Annotated pixel-art social simulation</p>
+              <h2>A cozy campus town where every date is mediated by memory and relationship policy.</h2>
+            </div>
+            <div className="stat-pills">
+              <span>
+                <Sparkles size={15} />
+                {worldStats.avgSpark}% spark
+              </span>
+              <span>
+                <ShieldCheck size={15} />
+                {worldStats.avgBoundary}% boundary
+              </span>
+              <span>
+                <HeartHandshake size={15} />
+                {worldStats.agents} agents
+              </span>
+            </div>
+          </div>
+
+          <div className="map-infographic">
+            <div className="town-map">
+              <div className="grass-layer" />
+              <div className="path path-main" />
+              <div className="path path-vertical" />
+              <div className="pond" />
+              <div className="flower-field" />
+              {locations.map((location) => (
+                <PixelBuilding key={location.id} location={location} />
+              ))}
+
+              <div className="self-agent" style={{ left: '43%', top: '49%' }}>
+                <span className="self-head" />
+                <span className="self-body" />
+                <span className="map-bubble self-bubble">I am not a user profile. I am a bounded dating agent.</span>
+              </div>
+
+              {dateAgents.map((agent) => (
+                <PixelSprite
+                  key={agent.id}
+                  agent={agent}
+                  selected={agent.id === selectedTargetId}
+                  onClick={() => setSelectedTargetId(agent.id)}
+                />
+              ))}
+
+              <svg className="callout-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                <line x1="31" y1="24" x2="17" y2="6" />
+                <line x1="83" y1="24" x2="86" y2="5" />
+                <line x1="58" y1="77" x2="41" y2="94" />
+                <line x1="26" y1="55" x2="10" y2="47" />
+                <line x1="63" y1="17" x2="75" y2="94" />
+              </svg>
+            </div>
+
+            {scenes.map((scene) => {
+              const agent = dateAgents.find((item) => item.id === scene.targetId) ?? dateAgents[0];
+              return <CalloutPanel key={scene.id} scene={scene} agent={agent} active={scene.id === activeScene.id} />;
+            })}
+          </div>
+
+          <div className="event-strip" aria-label="World event log">
+            {events.slice(0, 4).map((event) => (
+              <article key={event.id}>
+                <span>{formatWorldTime(event.minute)}</span>
+                <strong>{event.title}</strong>
+                <p>{event.detail}</p>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <aside className="right-column" aria-label="Relationship and infrastructure inspector">
+          <div className="panel relationship-panel">
+            <div className="panel-heading">
+              <HeartHandshake size={18} />
+              <span>Relationship selected</span>
+            </div>
+            <div className="target-card">
+              <div className={`avatar-tile sprite-${selectedTarget.color}`}>{selectedTarget.initials}</div>
+              <div>
+                <p className="eyebrow">{selectedTarget.school}</p>
+                <h3>{selectedTarget.name}</h3>
+                <p>{selectedTarget.role}</p>
+              </div>
+            </div>
+            <div className="target-list">
+              {dateAgents.map((agent) => (
+                <button
+                  key={agent.id}
+                  type="button"
+                  className={agent.id === selectedTargetId ? 'active' : ''}
+                  onClick={() => setSelectedTargetId(agent.id)}
+                >
+                  <span className={`mini-dot sprite-${agent.color}`} />
+                  <span>{agent.name}</span>
+                  <small>{modeLabel(agent.relationship.mode)}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="panel relationship-memory">
+            <div className="panel-heading">
+              <Brain size={18} />
+              <span>Dyad memory and policy</span>
+            </div>
+            <h3>{modeLabel(selectedTarget.relationship.mode)} with {profile.name}</h3>
+            <p>{selectedTarget.relationship.memory}</p>
+            <div className="meter-grid">
+              <Meter label="Trust" value={selectedTarget.relationship.trust} />
+              <Meter label="Spark" value={selectedTarget.relationship.spark} />
+              <Meter label="Boundary" value={selectedTarget.relationship.boundary} />
+            </div>
+            <div className="policy-box">
+              <strong>Policy</strong>
+              <p>{selectedTarget.relationship.policy}</p>
+              <div className="token-columns">
+                <div>
+                  <span>Allowed</span>
+                  {selectedTarget.relationship.allowed.map((item) => <em key={item}>{item}</em>)}
+                </div>
+                <div>
+                  <span>Blocked</span>
+                  {selectedTarget.relationship.blocked.map((item) => <em key={item}>{item}</em>)}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="panel infra-panel">
+            <div className="panel-heading">
+              <Waypoints size={18} />
+              <span>Infra blueprint</span>
+            </div>
+            {infraLanes.map((lane) => (
+              <article key={lane.title} className="infra-lane">
+                <div className="lane-icon">
+                  <IconForLane icon={lane.icon} />
+                </div>
+                <div>
+                  <h3>{lane.title}</h3>
+                  <p>{lane.detail}</p>
+                  <div>
+                    {lane.calls.map((call) => <code key={call}>{call}</code>)}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+
+          <div className="panel world-rules">
+            <div className="panel-heading">
+              <LockKeyhole size={18} />
+              <span>World rule</span>
+            </div>
+            <p>
+              This is not a set of mini-games. Once the world is created, the agent lives here from Day 1.
+              Dates, mistakes, exits, memories, and policy changes all become part of the forward timeline.
+            </p>
+            <div className="next-move">
+              <MessageCircle size={17} />
+              <span>{selectedTarget.relationship.nextMove}</span>
+            </div>
+          </div>
+        </aside>
+      </section>
+    </main>
+  );
+}
+
+export default App;
