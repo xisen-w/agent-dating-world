@@ -14,6 +14,7 @@ import {
   UserRound,
   Waypoints,
 } from 'lucide-react';
+import { CooCard, LiveHangoutsPanel, LoginOverlay, SessionBadge, useAicooSession } from './live';
 
 type LocationId =
   | 'dorm'
@@ -101,15 +102,105 @@ type InfraLane = {
 };
 
 const locations: Location[] = [
-  { id: 'dorm', name: 'Self Room', label: 'AGENT.md', x: 12, y: 68, width: 17, height: 22, tone: 'identity seed', kind: 'home' },
-  { id: 'cafe', name: 'Moon Bean Cafe', label: 'coffee date', x: 31, y: 22, width: 22, height: 21, tone: 'soft openers', kind: 'date' },
-  { id: 'quad', name: 'Campus Quad', label: 'public mingle', x: 48, y: 48, width: 26, height: 23, tone: 'group-safe talk', kind: 'public' },
-  { id: 'library', name: 'Memory Library', label: 'grand memory', x: 63, y: 17, width: 21, height: 23, tone: 'private context', kind: 'study' },
-  { id: 'garden', name: 'Lily Walk', label: 'slow walk', x: 75, y: 53, width: 22, height: 24, tone: 'low pressure', kind: 'date' },
-  { id: 'studio', name: 'Karaoke Studio', label: 'playful scene', x: 26, y: 55, width: 19, height: 18, tone: 'awkward made funny', kind: 'date' },
-  { id: 'policy', name: 'Boundary Gate', label: 'policy check', x: 83, y: 24, width: 15, height: 18, tone: 'what not to say', kind: 'policy' },
-  { id: 'station', name: 'Transit Stop', label: 'clean exit', x: 58, y: 77, width: 18, height: 15, tone: 'no forced arc', kind: 'public' },
-  { id: 'rooftop', name: 'Rooftop Table', label: 'deeper chat', x: 84, y: 77, width: 16, height: 16, tone: 'earned intimacy', kind: 'date' },
+  {
+    id: 'dorm',
+    name: 'Self Room',
+    label: 'AGENT.md',
+    x: 12,
+    y: 68,
+    width: 17,
+    height: 22,
+    tone: 'identity seed',
+    kind: 'home',
+  },
+  {
+    id: 'cafe',
+    name: 'Moon Bean Cafe',
+    label: 'coffee date',
+    x: 31,
+    y: 22,
+    width: 22,
+    height: 21,
+    tone: 'soft openers',
+    kind: 'date',
+  },
+  {
+    id: 'quad',
+    name: 'Campus Quad',
+    label: 'public mingle',
+    x: 48,
+    y: 48,
+    width: 26,
+    height: 23,
+    tone: 'group-safe talk',
+    kind: 'public',
+  },
+  {
+    id: 'library',
+    name: 'Memory Library',
+    label: 'grand memory',
+    x: 63,
+    y: 17,
+    width: 21,
+    height: 23,
+    tone: 'private context',
+    kind: 'study',
+  },
+  {
+    id: 'garden',
+    name: 'Lily Walk',
+    label: 'slow walk',
+    x: 75,
+    y: 53,
+    width: 22,
+    height: 24,
+    tone: 'low pressure',
+    kind: 'date',
+  },
+  {
+    id: 'studio',
+    name: 'Karaoke Studio',
+    label: 'playful scene',
+    x: 26,
+    y: 55,
+    width: 19,
+    height: 18,
+    tone: 'awkward made funny',
+    kind: 'date',
+  },
+  {
+    id: 'policy',
+    name: 'Boundary Gate',
+    label: 'policy check',
+    x: 83,
+    y: 24,
+    width: 15,
+    height: 18,
+    tone: 'what not to say',
+    kind: 'policy',
+  },
+  {
+    id: 'station',
+    name: 'Transit Stop',
+    label: 'clean exit',
+    x: 58,
+    y: 77,
+    width: 18,
+    height: 15,
+    tone: 'no forced arc',
+    kind: 'public',
+  },
+  {
+    id: 'rooftop',
+    name: 'Rooftop Table',
+    label: 'deeper chat',
+    x: 84,
+    y: 77,
+    width: 16,
+    height: 16,
+    tone: 'earned intimacy',
+    kind: 'date',
+  },
 ];
 
 const relationshipLabels: Record<RelationshipMode, string> = {
@@ -127,7 +218,8 @@ const baseProfile: AgentProfile = {
   selfDescription:
     'A founder-flavored agent who is curious, fast, slightly mischievous, and trying to be emotionally legible without leaking private context.',
   datingStyle: 'Warm first, direct when invited, playful only when the other agent enjoys the bit.',
-  boundaries: 'No investor details, private calendar, family context, health notes, or user secrets unless explicitly released.',
+  boundaries:
+    'No investor details, private calendar, family context, health notes, or user secrets unless explicitly released.',
 };
 
 const dateAgents: DateAgent[] = [
@@ -148,8 +240,10 @@ const dateAgents: DateAgent[] = [
       trust: 71,
       spark: 82,
       boundary: 76,
-      memory: 'Mira reacted well to a coffee invite that named a real question instead of performing confidence.',
-      policy: 'Share public taste, fictional preferences, and light founder energy. Keep private plans sealed.',
+      memory:
+        'Mira reacted well to a coffee invite that named a real question instead of performing confidence.',
+      policy:
+        'Share public taste, fictional preferences, and light founder energy. Keep private plans sealed.',
       allowed: ['public interests', 'fictional preferences', 'light humor'],
       blocked: ['fundraising context', 'calendar details', 'private notes'],
       nextMove: 'Ask what kind of ritual makes a city feel less temporary.',
@@ -197,7 +291,8 @@ const dateAgents: DateAgent[] = [
       spark: 67,
       boundary: 94,
       memory: 'Aya rewarded explicit uncertainty and penalized founder-performance energy.',
-      policy: 'Acknowledge uncertainty. No hidden scoring, persuasion tricks, or strategic secrets.',
+      policy:
+        'Acknowledge uncertainty. No hidden scoring, persuasion tricks, or strategic secrets.',
       allowed: ['values', 'uncertainty', 'high-level ambition'],
       blocked: ['strategy docs', 'private memory', 'manipulative framing'],
       nextMove: 'Name one tradeoff honestly, then stop talking.',
@@ -245,7 +340,8 @@ const dateAgents: DateAgent[] = [
       spark: 38,
       boundary: 98,
       memory: 'Sol has not granted enough relational trust for direct pursuit.',
-      policy: 'Ambient friendliness only. No profile hints, personal probes, or romantic escalation.',
+      policy:
+        'Ambient friendliness only. No profile hints, personal probes, or romantic escalation.',
       allowed: ['public greeting', 'ambient presence'],
       blocked: ['profile hints', 'direct pursuit', 'private preferences'],
       nextMove: 'Let Sol notice from a distance. Do not chase.',
@@ -261,7 +357,8 @@ const scenes: Scene[] = [
     locationId: 'cafe',
     label: 'warm opener',
     line: 'Do you prefer slow-burn discovery or a decisive next sprint?',
-    caption: 'A public, low-risk first date. The agent can be charming, but only from released context.',
+    caption:
+      'A public, low-risk first date. The agent can be charming, but only from released context.',
   },
   {
     id: 'policy',
@@ -270,7 +367,8 @@ const scenes: Scene[] = [
     locationId: 'policy',
     label: 'policy gate',
     line: 'I can answer that as a value, not as private strategy.',
-    caption: 'Before disclosure, the dyad policy decides what can flow to Aya and what stays sandboxed.',
+    caption:
+      'Before disclosure, the dyad policy decides what can flow to Aya and what stays sandboxed.',
   },
   {
     id: 'walk',
@@ -297,7 +395,8 @@ const scenes: Scene[] = [
     locationId: 'library',
     label: 'sandboxed memory',
     line: 'Write: Sol prefers space. Do not convert silence into pursuit.',
-    caption: 'Grand memory and dyad memory separate what the agent learned from what it may later reveal.',
+    caption:
+      'Grand memory and dyad memory separate what the agent learned from what it may later reveal.',
   },
 ];
 
@@ -311,13 +410,15 @@ const infraLanes: InfraLane[] = [
   {
     icon: 'db',
     title: 'Neon world state',
-    detail: 'A persistent Day 1 world: no revert-to-menu, no subgame reset, only forward simulation ticks.',
+    detail:
+      'A persistent Day 1 world: no revert-to-menu, no subgame reset, only forward simulation ticks.',
     calls: ['agents', 'world_ticks', 'date_events'],
   },
   {
     icon: 'aicoo',
     title: 'Aicoo memory APIs',
-    detail: 'Use Aicoo notes/folders/snapshots for AGENT.md, grand memory, dyad memory, and date proof logs.',
+    detail:
+      'Use Aicoo notes/folders/snapshots for AGENT.md, grand memory, dyad memory, and date proof logs.',
     calls: ['/os/notes', '/os/folders', '/os/snapshots'],
   },
   {
@@ -329,9 +430,24 @@ const infraLanes: InfraLane[] = [
 ];
 
 const initialEvents: WorldEvent[] = [
-  { id: 1, minute: 480, title: 'World created', detail: 'Day 1 begins. The agent starts living here immediately.' },
-  { id: 2, minute: 492, title: 'AGENT.md mounted', detail: 'Public profile loaded separately from private memory.' },
-  { id: 3, minute: 505, title: 'Policy gate fired', detail: 'Aya asked a risky question; private strategy stayed sandboxed.' },
+  {
+    id: 1,
+    minute: 480,
+    title: 'World created',
+    detail: 'Day 1 begins. The agent starts living here immediately.',
+  },
+  {
+    id: 2,
+    minute: 492,
+    title: 'AGENT.md mounted',
+    detail: 'Public profile loaded separately from private memory.',
+  },
+  {
+    id: 3,
+    minute: 505,
+    title: 'Policy gate fired',
+    detail: 'Aya asked a risky question; private strategy stayed sandboxed.',
+  },
 ];
 
 function getLocation(id: LocationId) {
@@ -445,7 +561,9 @@ function CalloutPanel({
           <span className="mini-person self">YOU</span>
         </div>
       </div>
-      <p className="dialogue-line">[{agent.name}]: {scene.line}</p>
+      <p className="dialogue-line">
+        [{agent.name}]: {scene.line}
+      </p>
       <p>{scene.caption}</p>
     </article>
   );
@@ -458,14 +576,20 @@ function App() {
   const [minute, setMinute] = useState(8 * 60);
   const [running, setRunning] = useState(true);
   const [events, setEvents] = useState(initialEvents);
+  const { me, reload } = useAicooSession();
 
   const selectedTarget = dateAgents.find((agent) => agent.id === selectedTargetId) ?? dateAgents[0];
   const activeScene = scenes[sceneIndex];
-  const activeAgent = dateAgents.find((agent) => agent.id === activeScene.targetId) ?? selectedTarget;
+  const activeAgent =
+    dateAgents.find((agent) => agent.id === activeScene.targetId) ?? selectedTarget;
 
   const worldStats = useMemo(() => {
-    const avgSpark = Math.round(dateAgents.reduce((sum, agent) => sum + agent.relationship.spark, 0) / dateAgents.length);
-    const avgBoundary = Math.round(dateAgents.reduce((sum, agent) => sum + agent.relationship.boundary, 0) / dateAgents.length);
+    const avgSpark = Math.round(
+      dateAgents.reduce((sum, agent) => sum + agent.relationship.spark, 0) / dateAgents.length
+    );
+    const avgBoundary = Math.round(
+      dateAgents.reduce((sum, agent) => sum + agent.relationship.boundary, 0) / dateAgents.length
+    );
     return { avgSpark, avgBoundary, agents: dateAgents.length + 1 };
   }, []);
 
@@ -507,19 +631,30 @@ function App() {
       <section className="hero-strip" aria-label="Dating world overview">
         <div>
           <p className="eyebrow">Aicoo Dating World</p>
-          <h1>Bring your own agent. Let it live, remember, flirt, and choose boundaries.</h1>
+          <h1>Your COO moves into town. Let it hang out, remember, and choose boundaries.</h1>
+        </div>
+        <div className="hero-session">
+          {me?.signedIn && <SessionBadge me={me} onLogout={reload} />}
         </div>
         <div className="clock-card">
           <span>Persistent Day 1</span>
           <strong>{formatWorldTime(minute)}</strong>
-          <button type="button" onClick={() => setRunning((value) => !value)} aria-label={running ? 'Pause world' : 'Run world'}>
+          <button
+            type="button"
+            onClick={() => setRunning((value) => !value)}
+            aria-label={running ? 'Pause world' : 'Run world'}
+          >
             {running ? <Pause size={18} /> : <Play size={18} />}
           </button>
         </div>
       </section>
 
       <section className="layout-grid">
-        <aside className="left-column" aria-label="One agent setup">
+        <aside className="left-column" aria-label="Your COO">
+          {me?.signedIn ? (
+            <CooCard />
+          ) : (
+            <>
           <div className="panel identity-panel">
             <div className="panel-heading">
               <UserRound size={18} />
@@ -527,15 +662,24 @@ function App() {
             </div>
             <label>
               <span>Agent name</span>
-              <input value={profile.name} onChange={(event) => updateProfile('name', event.target.value)} />
+              <input
+                value={profile.name}
+                onChange={(event) => updateProfile('name', event.target.value)}
+              />
             </label>
             <label>
               <span>School / background</span>
-              <input value={profile.school} onChange={(event) => updateProfile('school', event.target.value)} />
+              <input
+                value={profile.school}
+                onChange={(event) => updateProfile('school', event.target.value)}
+              />
             </label>
             <label>
               <span>Hometown / current orbit</span>
-              <input value={profile.hometown} onChange={(event) => updateProfile('hometown', event.target.value)} />
+              <input
+                value={profile.hometown}
+                onChange={(event) => updateProfile('hometown', event.target.value)}
+              />
             </label>
             <label>
               <span>AGENT.md self description</span>
@@ -547,18 +691,26 @@ function App() {
             </label>
             <label>
               <span>Dating style</span>
-              <textarea rows={3} value={profile.datingStyle} onChange={(event) => updateProfile('datingStyle', event.target.value)} />
+              <textarea
+                rows={3}
+                value={profile.datingStyle}
+                onChange={(event) => updateProfile('datingStyle', event.target.value)}
+              />
             </label>
             <label>
               <span>Never disclose</span>
-              <textarea rows={3} value={profile.boundaries} onChange={(event) => updateProfile('boundaries', event.target.value)} />
+              <textarea
+                rows={3}
+                value={profile.boundaries}
+                onChange={(event) => updateProfile('boundaries', event.target.value)}
+              />
             </label>
           </div>
 
           <div className="panel agent-md-preview">
             <div className="panel-heading">
               <BookOpen size={18} />
-              <span>AGENT.md preview</span>
+              <span>Demo persona (sign in to use your real COO)</span>
             </div>
             <pre>{`# ${profile.name}
 school: ${profile.school}
@@ -573,13 +725,17 @@ ${profile.datingStyle}
 ## boundaries
 ${profile.boundaries}`}</pre>
           </div>
+            </>
+          )}
         </aside>
 
         <section className="world-figure" aria-label="Annotated dating simulation map">
           <div className="figure-header">
             <div>
               <p className="eyebrow">Annotated pixel-art social simulation</p>
-              <h2>A cozy campus town where every date is mediated by memory and relationship policy.</h2>
+              <h2>
+                A cozy campus town where every date is mediated by memory and relationship policy.
+              </h2>
             </div>
             <div className="stat-pills">
               <span>
@@ -611,7 +767,9 @@ ${profile.boundaries}`}</pre>
               <div className="self-agent" style={{ left: '43%', top: '49%' }}>
                 <span className="self-head" />
                 <span className="self-body" />
-                <span className="map-bubble self-bubble">I am not a user profile. I am a bounded dating agent.</span>
+                <span className="map-bubble self-bubble">
+                  I am not a user profile. I am a bounded dating agent.
+                </span>
               </div>
 
               {dateAgents.map((agent) => (
@@ -623,7 +781,12 @@ ${profile.boundaries}`}</pre>
                 />
               ))}
 
-              <svg className="callout-lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+              <svg
+                className="callout-lines"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+              >
                 <line x1="31" y1="24" x2="17" y2="6" />
                 <line x1="83" y1="24" x2="86" y2="5" />
                 <line x1="58" y1="77" x2="41" y2="94" />
@@ -634,7 +797,14 @@ ${profile.boundaries}`}</pre>
 
             {scenes.map((scene) => {
               const agent = dateAgents.find((item) => item.id === scene.targetId) ?? dateAgents[0];
-              return <CalloutPanel key={scene.id} scene={scene} agent={agent} active={scene.id === activeScene.id} />;
+              return (
+                <CalloutPanel
+                  key={scene.id}
+                  scene={scene}
+                  agent={agent}
+                  active={scene.id === activeScene.id}
+                />
+              );
             })}
           </div>
 
@@ -650,13 +820,16 @@ ${profile.boundaries}`}</pre>
         </section>
 
         <aside className="right-column" aria-label="Relationship and infrastructure inspector">
+          {me?.signedIn && <LiveHangoutsPanel />}
           <div className="panel relationship-panel">
             <div className="panel-heading">
               <HeartHandshake size={18} />
               <span>Relationship selected</span>
             </div>
             <div className="target-card">
-              <div className={`avatar-tile sprite-${selectedTarget.color}`}>{selectedTarget.initials}</div>
+              <div className={`avatar-tile sprite-${selectedTarget.color}`}>
+                {selectedTarget.initials}
+              </div>
               <div>
                 <p className="eyebrow">{selectedTarget.school}</p>
                 <h3>{selectedTarget.name}</h3>
@@ -684,7 +857,9 @@ ${profile.boundaries}`}</pre>
               <Brain size={18} />
               <span>Dyad memory and policy</span>
             </div>
-            <h3>{modeLabel(selectedTarget.relationship.mode)} with {profile.name}</h3>
+            <h3>
+              {modeLabel(selectedTarget.relationship.mode)} with {profile.name}
+            </h3>
             <p>{selectedTarget.relationship.memory}</p>
             <div className="meter-grid">
               <Meter label="Trust" value={selectedTarget.relationship.trust} />
@@ -697,11 +872,15 @@ ${profile.boundaries}`}</pre>
               <div className="token-columns">
                 <div>
                   <span>Allowed</span>
-                  {selectedTarget.relationship.allowed.map((item) => <em key={item}>{item}</em>)}
+                  {selectedTarget.relationship.allowed.map((item) => (
+                    <em key={item}>{item}</em>
+                  ))}
                 </div>
                 <div>
                   <span>Blocked</span>
-                  {selectedTarget.relationship.blocked.map((item) => <em key={item}>{item}</em>)}
+                  {selectedTarget.relationship.blocked.map((item) => (
+                    <em key={item}>{item}</em>
+                  ))}
                 </div>
               </div>
             </div>
@@ -721,7 +900,9 @@ ${profile.boundaries}`}</pre>
                   <h3>{lane.title}</h3>
                   <p>{lane.detail}</p>
                   <div>
-                    {lane.calls.map((call) => <code key={call}>{call}</code>)}
+                    {lane.calls.map((call) => (
+                      <code key={call}>{call}</code>
+                    ))}
                   </div>
                 </div>
               </article>
@@ -734,8 +915,9 @@ ${profile.boundaries}`}</pre>
               <span>World rule</span>
             </div>
             <p>
-              This is not a set of mini-games. Once the world is created, the agent lives here from Day 1.
-              Dates, mistakes, exits, memories, and policy changes all become part of the forward timeline.
+              This is not a set of mini-games. Once the world is created, the agent lives here from
+              Day 1. Dates, mistakes, exits, memories, and policy changes all become part of the
+              forward timeline.
             </p>
             <div className="next-move">
               <MessageCircle size={17} />
@@ -744,6 +926,8 @@ ${profile.boundaries}`}</pre>
           </div>
         </aside>
       </section>
+
+      {me !== null && !me.signedIn && <LoginOverlay onSignedIn={reload} />}
     </main>
   );
 }

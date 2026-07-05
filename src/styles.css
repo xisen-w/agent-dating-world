@@ -1119,3 +1119,227 @@ code {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ─── Live mode: Login with Aicoo, session, real dates ─────────────── */
+
+.login-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(34, 50, 65, 0.42);
+  backdrop-filter: blur(3px);
+}
+
+.login-card {
+  max-width: 430px;
+  width: 100%;
+  padding: 26px;
+  border: 3px solid var(--line-strong);
+  box-shadow: var(--pixel-shadow);
+  background: var(--panel);
+  display: grid;
+  gap: 14px;
+}
+
+.login-card h2 {
+  margin: 0;
+  font-family: var(--font-display);
+}
+
+.login-sub {
+  margin: 0;
+  color: var(--muted);
+}
+
+.login-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 13px 16px;
+  border: 3px solid #2f6b46;
+  background: var(--mint);
+  color: #1c3f2b;
+  font-weight: 700;
+  text-decoration: none;
+  box-shadow: 4px 4px 0 rgba(47, 107, 70, 0.35);
+}
+
+.login-primary:hover {
+  transform: translate(-1px, -1px);
+}
+
+.login-divider {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.login-key-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 2px solid var(--line);
+  padding: 8px 10px;
+  background: var(--panel-2);
+}
+
+.login-key-row input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+}
+
+.login-key-row button {
+  border: 2px solid var(--line-strong);
+  background: var(--gold);
+  padding: 6px 10px;
+  font-weight: 700;
+}
+
+.login-error {
+  margin: 0;
+  color: #b3403f;
+  font-size: 0.85rem;
+}
+
+.hero-session {
+  display: flex;
+  align-items: center;
+}
+
+.session-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 2px solid var(--line-strong);
+  background: var(--panel);
+  box-shadow: 3px 3px 0 rgba(65, 82, 98, 0.18);
+  font-size: 0.86rem;
+}
+
+.session-badge small {
+  color: var(--muted);
+}
+
+.session-dot {
+  width: 9px;
+  height: 9px;
+  background: #4cae72;
+  border: 2px solid #2f6b46;
+}
+
+.session-badge button {
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  padding: 4px;
+}
+
+.save-to-aicoo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 2px solid #2f6b46;
+  background: var(--mint);
+  color: #1c3f2b;
+  font-weight: 700;
+  box-shadow: 3px 3px 0 rgba(47, 107, 70, 0.3);
+}
+
+.save-to-aicoo:disabled {
+  opacity: 0.7;
+  cursor: wait;
+}
+
+.live-dates-panel .live-date-form {
+  display: flex;
+  gap: 8px;
+}
+
+.live-dates-panel .live-date-form input {
+  flex: 1;
+  border: 2px solid var(--line);
+  padding: 8px 10px;
+  background: var(--panel-2);
+}
+
+.live-dates-panel .live-date-form button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 2px solid var(--line-strong);
+  background: var(--rose);
+  padding: 8px 11px;
+  font-weight: 700;
+}
+
+.live-status {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.live-transcript {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.live-transcript .turn {
+  margin: 0;
+  padding: 8px 10px;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  font-size: 0.85rem;
+}
+
+.live-transcript .turn-you {
+  border-color: #2f6b46;
+  background: #eefcf2;
+}
+
+.live-dyads {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.live-dyad-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.live-dyad-list button {
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  padding: 5px 9px;
+  font-size: 0.82rem;
+}
+
+.live-dyad-list button.active {
+  border-color: var(--line-strong);
+  background: var(--gold);
+}
+
+.live-dyad-content {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 2px solid var(--line);
+  background: var(--panel-2);
+  padding: 10px;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
