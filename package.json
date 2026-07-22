@@ -1,13 +1,15 @@
 {
-  "name": "agent-dating-world",
+  "name": "virtual-n1-world",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "dev:server": "tsx watch server/src/index.ts",
+    "start": "tsx server/src/index.ts",
     "build": "tsc --noEmit && vite build",
     "typecheck:server": "tsc -p server --noEmit",
+    "test": "tsx --test server/src/*.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {

@@ -1,5 +1,7 @@
 # Login with Aicoo — OAuth Test Matrix (v1)
 
+> **Historical baseline.** This report predates the Agent Fights UI and fight engine; the OAuth findings remain useful, but current verification commands and boundaries are documented in [`README.md`](README.md).
+
 > Date: 2026-07-06 · Tester: Claude (with Xisen)
 > System under test: pulse working tree (`codex/pact-submission-benchmark` + Phase 0 changes),
 > local dev server at `localhost:3000`, production `www.aicoo.io` for API-key paths.

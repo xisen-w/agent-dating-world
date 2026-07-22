@@ -8,14 +8,14 @@ import type { Context } from 'hono';
 import { getCookie, setCookie, deleteCookie } from 'hono/cookie';
 import { config } from './config.js';
 
-const SESSION_COOKIE = 'dw_session';
-const FLOW_COOKIE = 'dw_oauth_flow';
+const SESSION_COOKIE = 'af_session';
+const FLOW_COOKIE = 'af_oauth_flow';
 
 const key = createHash('sha256').update(config.sessionSecret).digest();
 
 export interface Session {
   authType: 'oauth' | 'api-key';
-  /** Aicoo user identity as reported by userinfo (pairwise sub) or os/status. */
+  /** Canonical Aicoo user id resolved server-side through /api/v1/identity. */
   sub: string;
   username?: string;
   displayName?: string;
@@ -32,6 +32,8 @@ export interface Session {
 export interface OAuthFlowState {
   state: string;
   codeVerifier: string;
+  /** Validated same-origin SPA route to restore after the provider callback. */
+  returnTo?: string;
 }
 
 async function encrypt(payload: object, expiresIn: string): Promise<string> {

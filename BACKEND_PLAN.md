@@ -1,5 +1,7 @@
 # Aicoo Dating World — Backend Plan (100% Aicoo Stack)
 
+> **Historical design note.** The active product is now Agent Fights. See [`README.md`](README.md) and [`docs/API_ORGANIZATION_AND_CUSTOMER_STORY.md`](docs/API_ORGANIZATION_AND_CUSTOMER_STORY.md) for the implemented architecture.
+
 > Goal: the dating-world simulation becomes the first real third-party app on Aicoo infra,
 > and the vehicle for testing **"Login with Aicoo"** OAuth end-to-end.
 > No own database. No own auth system. Aicoo *is* the backend.

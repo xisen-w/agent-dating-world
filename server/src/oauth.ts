@@ -66,13 +66,14 @@ export async function getClient(): Promise<ClientCredentials> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_name: 'Aicoo Dating World',
+      client_name: 'Aicoo Agent Fights',
       redirect_uris: [redirectUri],
       grant_types: ['authorization_code', 'refresh_token'],
       response_types: ['code'],
       token_endpoint_auth_method: 'none',
       scope: APP_SCOPES.join(' '),
     }),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
@@ -117,6 +118,7 @@ async function tokenRequest(params: Record<string, string>): Promise<TokenSet> {
     method: 'POST',
     headers,
     body: body.toString(),
+    signal: AbortSignal.timeout(15_000),
   });
 
   if (!res.ok) {
@@ -144,6 +146,28 @@ export function refreshTokens(refreshToken: string): Promise<TokenSet> {
   });
 }
 
+export async function revokeToken(token: string): Promise<void> {
+  const { clientId, clientSecret } = await getClient();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/x-www-form-urlencoded',
+  };
+  const body = new URLSearchParams({ token });
+  if (clientSecret) {
+    headers.Authorization = `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`;
+  } else {
+    body.set('client_id', clientId);
+  }
+  const res = await fetch(oauthPaths.revoke, {
+    method: 'POST',
+    headers,
+    body: body.toString(),
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) {
+    throw new Error(`Token revocation failed (${res.status})`);
+  }
+}
+
 export interface UserInfo {
   sub: string;
   name?: string;
@@ -154,6 +178,7 @@ export interface UserInfo {
 export async function fetchUserInfo(accessToken: string): Promise<UserInfo> {
   const res = await fetch(oauthPaths.userinfo, {
     headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(15_000),
   });
   if (!res.ok) {
     throw new Error(`userinfo failed (${res.status}): ${await res.text()}`);

@@ -1,7 +1,7 @@
 /**
  * Thin client for the Aicoo v1 REST surface. Every call authenticates with a
  * bearer credential — either the user's OAuth access token ("Login with
- * Aicoo") or an Aicoo API key (BYOK / world operator). Aicoo notes are the
+ * Aicoo") or an Aicoo API key (BYOK / arena operator). Aicoo notes are the
  * database; snapshots are the audit log.
  */
 import { config } from './config.js';
@@ -24,12 +24,37 @@ async function api<T>(bearer: string, method: string, apiPath: string, body?: un
       ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
     },
     body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(apiPath === '/chat' ? 90_000 : 30_000),
   });
 
   const text = await res.text();
   if (!res.ok) {
     throw new AicooError(res.status, text);
   }
+  try {
+    return JSON.parse(text) as T;
+  } catch {
+    throw new AicooError(res.status, text, 'Aicoo returned non-JSON response');
+  }
+}
+
+async function aicooJson<T>(
+  bearer: string,
+  method: string,
+  absolutePath: string,
+  body?: unknown
+): Promise<T> {
+  const res = await fetch(`${config.aicooBaseUrl}${absolutePath}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${bearer}`,
+      ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+    },
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    signal: AbortSignal.timeout(90_000),
+  });
+  const text = await res.text();
+  if (!res.ok) throw new AicooError(res.status, text);
   try {
     return JSON.parse(text) as T;
   } catch {
@@ -67,11 +92,43 @@ export async function listNotes(bearer: string, folderName: string): Promise<Not
   }
 }
 
+export async function listNotesByFolderId(
+  bearer: string,
+  folderId: number
+): Promise<NoteSummary[]> {
+  const res = await api<{ notes: NoteSummary[] }>(
+    bearer,
+    'GET',
+    `/os/notes?folderId=${folderId}&limit=200`
+  );
+  return res.notes ?? [];
+}
+
 export async function createNote(
   bearer: string,
   args: { title: string; content: string; folderId?: number }
-): Promise<{ success: boolean; result: unknown }> {
+): Promise<{ success: boolean; result?: { note?: { id?: number } }; note?: { id?: number } }> {
   return api(bearer, 'POST', '/os/notes', args);
+}
+
+export async function createNoteAndGetId(
+  bearer: string,
+  args: { title: string; content: string; folderId?: number }
+): Promise<number> {
+  const created = await createNote(bearer, args);
+  const noteId = created.result?.note?.id ?? created.note?.id;
+  if (typeof noteId !== 'number') {
+    throw new Error(`Aicoo created "${args.title}" without returning its note id.`);
+  }
+  return noteId;
+}
+
+export async function findNoteInFolder(
+  bearer: string,
+  folderId: number,
+  title: string
+): Promise<NoteSummary | null> {
+  return (await listNotesByFolderId(bearer, folderId)).find((note) => note.title === title) ?? null;
 }
 
 /**
@@ -126,18 +183,14 @@ export async function upsertNote(
   content: string
 ): Promise<number> {
   const folderId = await ensureFolder(bearer, folderPath);
-  const leafName = folderPath.split('/').pop()!;
-  const existing = (await listNotes(bearer, leafName)).find((n) => n.title === title);
+  const existing = await findNoteInFolder(bearer, folderId, title);
 
   if (existing) {
     await editNote(bearer, existing.id, { content });
     return existing.id;
   }
 
-  await createNote(bearer, { title, content, folderId });
-  const after = (await listNotes(bearer, leafName)).find((n) => n.title === title);
-  if (!after) throw new Error(`Note "${title}" was not created in ${folderPath}`);
-  return after.id;
+  return createNoteAndGetId(bearer, { title, content, folderId });
 }
 
 // ─── Snapshots (proof log) ──────────────────────────────────────────
@@ -161,10 +214,7 @@ export interface CooChatReply {
   response: string;
 }
 
-/**
- * Ask the caller's OWN COO to compose a message (non-streaming agent-v04).
- * Pass conversationId to keep one continuous thread per hangout.
- */
+/** Ask the caller's own COO to compose a turn. */
 export async function cooChat(
   bearer: string,
   message: string,
@@ -197,6 +247,101 @@ export async function messageAgent(
   return api(bearer, 'POST', '/agent/message', { to, message, intent });
 }
 
+// ─── Scoped share links & signed-in guest agent ────────────────────
+
+export interface ShareLinkSummary {
+  id: string;
+  agentUrl: string;
+  label: string | null;
+  scope?: string;
+  access?: string;
+  notesAccess?: string;
+  requireSignIn: boolean;
+  isActive: boolean;
+  expiresAt: string | null;
+  identity?: { loadCoo?: boolean; loadUser?: boolean; loadPolicy?: boolean };
+}
+
+export async function listShareLinks(bearer: string): Promise<ShareLinkSummary[]> {
+  const res = await api<{ links?: ShareLinkSummary[] }>(
+    bearer,
+    'GET',
+    '/os/share/list?status=active&limit=50'
+  );
+  return res.links ?? [];
+}
+
+export async function createShareLink(
+  bearer: string,
+  args: {
+    folderId: number;
+    label: string;
+    linkPolicy: string;
+  }
+): Promise<{ id: string; token: string; agentUrl: string }> {
+  const res = await api<{
+    shareLink: { id: string; token: string; agentUrl?: string; url: string };
+  }>(bearer, 'POST', '/os/share', {
+    scope: 'folders',
+    access: 'read',
+    notesAccess: 'read',
+    folderIds: [args.folderId],
+    label: args.label,
+    expiresIn: '7d',
+    requireSignIn: true,
+    identity: { loadCoo: false, loadUser: false, loadPolicy: false },
+    email: { read: false },
+    todos: { read: false, create: false },
+    tools: { allowedTools: [] },
+    linkPolicy: args.linkPolicy,
+  });
+  return {
+    id: String(res.shareLink.id),
+    token: res.shareLink.token,
+    agentUrl: res.shareLink.agentUrl ?? res.shareLink.url,
+  };
+}
+
+export async function restoreShareLinkScope(
+  bearer: string,
+  args: { linkId: string; folderId: number; label: string }
+): Promise<void> {
+  await api(bearer, 'PATCH', `/os/share/${encodeURIComponent(args.linkId)}`, {
+    scope: 'folders',
+    folderIds: [args.folderId],
+    access: 'read',
+    notesAccess: 'read',
+    label: args.label,
+    expiresIn: '7d',
+    requireSignIn: true,
+    identity: { loadCoo: false, loadUser: false, loadPolicy: false },
+    email: { read: false },
+    todos: { read: false, create: false },
+    tools: { allowedTools: [] },
+  });
+}
+
+export interface GuestAgentReply {
+  sessionKey: string;
+  agentName: string;
+  ownerName: string;
+  response: string;
+  elapsedMs?: number;
+}
+
+export async function messageScopedAgent(
+  bearer: string,
+  args: { token: string; message: string; sessionKey?: string }
+): Promise<GuestAgentReply> {
+  return aicooJson(bearer, 'POST', '/api/chat/guest-v04', {
+    token: args.token,
+    message: args.message,
+    stream: false,
+    mode: 'agent',
+    ...(args.sessionKey ? { sessionKey: args.sessionKey } : {}),
+  });
+}
+
 // ─── Identity ───────────────────────────────────────────────────────
 
 export interface AicooIdentity {
@@ -210,8 +355,7 @@ export interface AicooIdentity {
   };
 }
 
-/** Used to validate BYOK keys and resolve the caller's identity.
- *  (API-key only today — OAuth sessions resolve identity via OIDC userinfo.) */
+/** Validate a bearer credential and resolve the caller's Aicoo identity. */
 export async function getIdentity(bearer: string): Promise<AicooIdentity> {
   return api(bearer, 'GET', '/identity');
 }

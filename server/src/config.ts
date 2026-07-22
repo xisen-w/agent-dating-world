@@ -2,6 +2,13 @@
  * BFF configuration. Everything comes from env — the server keeps no
  * database; Aicoo is the backend.
  */
+import { loadEnvFile } from 'node:process';
+
+try {
+  loadEnvFile();
+} catch (error) {
+  if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+}
 
 function required(name: string, fallback?: string): string {
   const value = process.env[name] ?? fallback;
@@ -11,9 +18,14 @@ function required(name: string, fallback?: string): string {
   return value;
 }
 
+const sessionSecret = required(
+  'SESSION_SECRET',
+  process.env.NODE_ENV === 'production' ? undefined : 'agent-fights-dev-secret-change-me'
+);
+
 export const config = {
   /** Aicoo deployment this app runs against. */
-  aicooBaseUrl: (process.env.AICOO_BASE_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
+  aicooBaseUrl: (process.env.AICOO_BASE_URL ?? 'https://www.aicoo.io').replace(/\/$/, ''),
 
   /** OAuth client credentials. Left empty → the BFF self-registers via
    *  dynamic client registration on first login and caches the result. */
@@ -25,18 +37,16 @@ export const config = {
     /\/$/,
     ''
   ),
-  spaUrl: (process.env.SPA_URL ?? 'http://localhost:5173').replace(/\/$/, ''),
+  spaUrl: (process.env.SPA_URL ?? 'http://localhost:3000').replace(/\/$/, ''),
 
   /** Secret for encrypting the session cookie (any long random string). */
-  sessionSecret: required(
-    'SESSION_SECRET',
-    process.env.NODE_ENV === 'production' ? undefined : 'dating-world-dev-secret-change-me'
-  ),
+  sessionSecret,
 
-  /** World-operator Aicoo account API key — owns roster + tick log. */
+  /** Pepper for player ids and vault commitments. Use a separate secret in production. */
+  arenaSecret: process.env.ARENA_SECRET ?? sessionSecret,
+
+  /** Operator Aicoo account API key — owns the roster and proof ledger. */
   operatorApiKey: process.env.AICOO_OPERATOR_API_KEY ?? '',
-  /** Shared secret required to call POST /api/tick. */
-  tickSecret: process.env.OPERATOR_TICK_SECRET ?? '',
 };
 
 export const oauthPaths = {
@@ -52,11 +62,10 @@ export const redirectUri = process.env.AICOO_REDIRECT_URI ?? `${config.publicUrl
 /** RFC 8707 resource: makes Aicoo mint a JWT access token audienced to /api/v1. */
 export const v1Resource = `${config.aicooBaseUrl}/api/v1`;
 
-/** Scopes the dating app needs. */
+/** Least-privilege scopes used by Agent Fights. */
 export const APP_SCOPES = [
   'openid',
   'profile',
-  'email',
   'offline_access',
   'os.notes:read',
   'os.notes:write',
