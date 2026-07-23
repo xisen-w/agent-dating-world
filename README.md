@@ -54,8 +54,8 @@ Set these values in `.env`:
 - `SESSION_SECRET`: a long random value used to encrypt session cookies.
 - `ARENA_SECRET`: a different long random value used for opaque IDs and vault commitments.
 - `AICOO_OPERATOR_API_KEY`: an Aicoo API key for the workspace that owns the shared arena ledger.
-- `AICOO_CLIENT_ID` and `AICOO_CLIENT_SECRET`: recommended for a registered production OAuth client. If omitted locally, the BFF attempts Aicoo dynamic client registration and caches the result in `.oauth-client.json`.
-- `AICOO_REDIRECT_URI`: must match the redirect URI registered with Aicoo.
+- `AICOO_CLIENT_ID` and `AICOO_CLIENT_SECRET`: required. Register a confidential OAuth client in Aicoo's Developer Portal (Account → Developer → Developer Portal → **New Client**) and paste its credentials here. Aicoo has disabled anonymous dynamic client registration, so the BFF can no longer self-register on first login.
+- `AICOO_REDIRECT_URI`: must **exactly** match the Redirect URI set on that client (for local dev: `http://localhost:8787/auth/callback`). A mismatch makes Aicoo reject the sign-in with `invalid_redirect` before the login page even renders.
 
 Run the BFF and frontend in separate terminals:
 
