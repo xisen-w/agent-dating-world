@@ -27,8 +27,7 @@ export const config = {
   /** Aicoo deployment this app runs against. */
   aicooBaseUrl: (process.env.AICOO_BASE_URL ?? 'https://www.aicoo.io').replace(/\/$/, ''),
 
-  /** OAuth client credentials. Left empty → the BFF self-registers via
-   *  dynamic client registration on first login and caches the result. */
+  /** Pre-registered confidential OAuth client credentials. */
   clientId: process.env.AICOO_CLIENT_ID ?? '',
   clientSecret: process.env.AICOO_CLIENT_SECRET ?? '',
 

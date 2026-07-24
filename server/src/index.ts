@@ -10,6 +10,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 import { randomBytes } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { AicooError, getIdentity } from './aicoo.js';
 import { authResultUrl, normalizeReturnTo } from './auth-redirect.js';
 import { config } from './config.js';
@@ -38,7 +39,10 @@ import {
   type FightIdentity,
 } from './fights.js';
 
-const app = new Hono();
+export const app = new Hono();
+const isMainModule = Boolean(
+  process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href
+);
 
 app.use('*', cors({ origin: config.spaUrl, credentials: true }));
 app.use('*', async (c, next) => {
@@ -296,12 +300,16 @@ app.all('/api/*', (c) => jsonError(c, 404, 'API route not found.'));
 app.all('/auth/*', (c) => jsonError(c, 404, 'Auth route not found.'));
 
 // A production process can serve the Vite build and BFF from one origin.
-if (process.env.NODE_ENV === 'production') {
+if (process.env.NODE_ENV === 'production' && isMainModule) {
   app.use('/assets/*', serveStatic({ root: './dist' }));
   app.get('*', serveStatic({ path: './dist/index.html' }));
 }
 
-serve({ fetch: app.fetch, port: config.port }, (info) => {
-  console.log(`[virtual-n1-world] BFF listening on http://localhost:${info.port}`);
-  console.log(`[virtual-n1-world] Aicoo backend: ${config.aicooBaseUrl}`);
-});
+if (isMainModule) {
+  serve({ fetch: app.fetch, port: config.port }, (info) => {
+    console.log(`[virtual-n1-world] BFF listening on http://localhost:${info.port}`);
+    console.log(`[virtual-n1-world] Aicoo backend: ${config.aicooBaseUrl}`);
+  });
+}
+
+export default app;
