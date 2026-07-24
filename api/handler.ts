@@ -1,8 +1,6 @@
-import { handle } from 'hono/vercel';
 import { config } from '../server/src/config.js';
 import app from '../server/src/index.js';
 
-const honoHandler = handle(app);
 const forwardedRoutePattern = /^\/(?:api|auth)(?:\/|$)/;
 
 export function resolveRequestUrl(requestUrl: string): URL {
@@ -30,7 +28,9 @@ export function handler(request: Request): Response | Promise<Response> {
     request = new Request(url, request);
   }
 
-  return honoHandler(request);
+  return app.fetch(request);
 }
 
-export default handler;
+// Vercel's current Node runtime uses this Web-standard fetch signature. A
+// default function is treated as the legacy `(req, res)` signature instead.
+export default { fetch: handler };
